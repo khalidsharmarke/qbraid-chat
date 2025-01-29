@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Window</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 98vh;
+        }
+
+        .messages-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+        }
+
+        .message-container {
+            display: flex;
+            align-items: flex-start;
+            margin: 10px;
+        }
+
+        .message-bubble {
+            background-color: #f8f9fa;
+            padding: 10px 16px;
+            border-radius: 25px;
+            max-width: 60%;
+            word-wrap: break-word;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.05);
+        }
+
+        .sender-message-container {
+            justify-content: flex-end;
+        }
+
+        .sender-message-bubble {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .receiver-message-container {
+            justify-content: flex-start;
+        }
+
+        .receiver-message-bubble {
+            background-color: #f8f9fa;
+            color: black;
+        }
+
+        .message-input-container {
+            display: flex;
+            align-items: center;
+            padding: 3px;
+            background-color: white;
+            border-radius: 25px;
+        }
+
+        .outgoing-message {
+            justify-content: flex-end;
+        }
+
+        .incoming-message {
+            justify-content: flex-start;
+        }
+
+        #messageInput {
+            flex-grow: 1;
+            margin-right: 6px;
+            border: none;
+            outline: none;
+            border-radius: 25px;
+            height: 15px;
+            font-size: small;
+            background-color: #f8f9fa;
+            padding: 10px 16px 10px 16px;
+        }
+
+        #sendButton {
+            background-color: #007bff;
+            border-radius: 50px;
+            outline: none;
+            border: none;
+            padding: 14px 16px 14px 16px;
+            color: #fff;
+            font-size: small;
+            cursor: pointer;
+        }
+
+        #botThinking {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Current Chat Model:
+        <span id="chatModel"></span>
+    </h2>
+    <div class="messages-container" id="messages-container">
+        <div id="botThinking" hidden>Bot Is Thinking...</div>
+        <div id="messages"></div>
+    </div>
+    <div class="message-input-container">
+        <input type="text" id="messageInput" placeholder="Type a message..." />
+        <button id="sendButton">Send</button>
+    </div>
+
+    <script>
+        const vscode = acquireVsCodeApi();
+
+        const messagesContainer = document.getElementById('messages-container');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const chatModel = document.getElementById('chatModel');
+        const botThinking = document.getElementById('botThinking');
+        messageInput.focus();
+
+        // Listen for messages from the extension
+        window.addEventListener('message', event => handleExtensionMessage(event.data));
+
+        // On load, request the chat model from the extension
+        (async () => {
+            await vscode.postMessage({ type: 'GetChatModel' });
+        })();
+
+        // Add a listener for Enter key press
+        messageInput.addEventListener('keypress', event => {
+            if (event.key === 'Enter') { sendButton.click() }
+        });
+
+        // Add a listener for the Send button click
+        sendButton.addEventListener('click', event => {
+            if (messageInput.value) { addMessageToBody(messageInput.value, true) }
+        });
+
+        function handleExtensionMessage(message) {
+            switch (message.type) {
+                case 'BotThinking':
+                    botThinking.hidden = false;
+                    break;
+                case 'BotMessage':
+                    botThinking.hidden = true;
+                    if (message.content) {
+                        addMessageToBody(message.content);
+                    }
+                    break;
+                case 'ChatModel':
+                    if (message.content) {
+                        chatModel.textContent = message.content;
+                    }
+                    break;
+            }
+            messagesContainer.scrollTop = messages.scrollHeight;
+        }
+
+        // Append a message to the chat window
+        function addMessageToBody(message, isSender = false) {
+            const messageContainer = document.createElement('div');
+            const messageElement = document.createElement('div');
+
+            messageContainer.classList.add('message-container');
+            messageElement.classList.add('message-bubble');
+            messageElement.textContent = message;
+
+            if (isSender) {
+                messageContainer.classList.add('outgoing-message');
+                messageElement.classList.add('sender-message-bubble');
+            } else {
+                messageContainer.classList.add('incoming-message');
+                messageElement.classList.add('receiver-message-bubble');
+            }
+
+            messageContainer.appendChild(messageElement);
+            messages.appendChild(messageContainer);
+            messageInput.value = '';
+
+            if (isSender) {
+                vscode.postMessage({ type: "UserMessage", content: messageElement.textContent });
+            }
+        }
+    </script>
+</body>
+
+</html>
